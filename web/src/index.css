@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+
+@theme {
+  --font-sans: 'Geist Variable', sans-serif;
+  --color-dim: oklch(0.52 0 0);
+}
+
+body {
+  @apply bg-black font-sans text-white;
+}
