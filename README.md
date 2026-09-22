@@ -1,6 +1,6 @@
-![](docs/menubar.png)
-
 # just todo.
+
+![](docs/menubar.png)
 
 Enter makes a line.
 Backspace takes it away.
