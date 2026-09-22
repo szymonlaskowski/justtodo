@@ -36,9 +36,20 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-swiftc -O -target arm64-apple-macos14.0 main.swift -o "$APP/Contents/MacOS/JustTodo"
+SLICES=$(mktemp -d)
+for arch in arm64 x86_64; do
+  swiftc -O -target "$arch-apple-macos14.0" main.swift -o "$SLICES/$arch"
+done
+lipo -create "$SLICES"/* -output "$APP/Contents/MacOS/JustTodo"
+
 codesign --force --deep --sign - "$APP"
 echo "built $APP"
+
+if [ "${1:-}" = "--release" ]; then
+  rm -f JustTodo.zip
+  ditto -c -k --keepParent "$APP" JustTodo.zip
+  echo "packaged JustTodo.zip"
+fi
 
 if [ "${1:-}" = "--install" ]; then
   pkill -f "/Applications/$APP/Contents/MacOS/JustTodo" || true
