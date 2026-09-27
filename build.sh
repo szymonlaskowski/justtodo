@@ -4,6 +4,14 @@ cd "$(dirname "$0")"
 
 APP="JustTodo.app"
 
+if [ "${1:-}" = "--release" ]; then
+  VERSION=${2:?usage: ./build.sh --release 1.2.0}
+  git diff --quiet HEAD || { echo "commit your changes before releasing"; exit 1; }
+else
+  LATEST_TAG=$(git describe --tags --abbrev=0)
+  VERSION=${LATEST_TAG#v}
+fi
+
 (cd web && bun install --silent && bun run build)
 
 rm -rf "$APP"
@@ -18,7 +26,7 @@ for size in 16 32 64 128 256 512; do
 done
 iconutil --convert icns "$ICONSET" --output "$APP/Contents/Resources/JustTodo.icns"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -27,8 +35,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key><string>JustTodo</string>
   <key>CFBundleIdentifier</key><string>dev.szymon.justtodo</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
   <key>CFBundleIconFile</key><string>JustTodo</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
@@ -43,12 +51,15 @@ done
 lipo -create "$SLICES"/* -output "$APP/Contents/MacOS/JustTodo"
 
 codesign --force --deep --sign - "$APP"
-echo "built $APP"
+echo "built $APP $VERSION"
 
 if [ "${1:-}" = "--release" ]; then
   rm -f JustTodo.zip
   ditto -c -k --keepParent "$APP" JustTodo.zip
-  echo "packaged JustTodo.zip"
+  git tag "v$VERSION"
+  git push origin "v$VERSION"
+  gh release create "v$VERSION" JustTodo.zip --title "JustTodo $VERSION" --generate-notes
+  echo "released v$VERSION"
 fi
 
 if [ "${1:-}" = "--install" ]; then

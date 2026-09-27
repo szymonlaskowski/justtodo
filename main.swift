@@ -9,6 +9,27 @@ let maxContentHeight: CGFloat = 560
 let siteRoot = Bundle.main.resourceURL!.appendingPathComponent("site")
 let floatingWindowFrameName = "JustTodoWindow"
 let todosFile = URL.applicationSupportDirectory.appending(path: "JustTodo/todos.json")
+let latestReleaseEndpoint = URL(string: "https://api.github.com/repos/szymonlaskowski/justtodo/releases/latest")!
+let installedVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String
+let secondsBetweenUpdateChecks: Double = 24 * 60 * 60
+
+struct Release: Decodable {
+    let tagName: String
+    let htmlUrl: URL
+
+    var version: String { String(tagName.dropFirst("v".count)) }
+}
+
+func fetchLatestRelease() async throws -> Release {
+    let (body, _) = try await URLSession.shared.data(from: latestReleaseEndpoint)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    return try decoder.decode(Release.self, from: body)
+}
+
+func isNewerThanInstalled(_ release: Release) -> Bool {
+    release.version.compare(installedVersion, options: .numeric) == .orderedDescending
+}
 
 func readTodosFile() -> String {
     guard let saved = try? String(contentsOf: todosFile, encoding: .utf8) else { return "[]" }
@@ -56,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private let popover = NSPopover()
     private var popoverWebView: WKWebView!
     private var windowWebView: WKWebView?
+    private var newerRelease: Release?
 
     private lazy var floatingWindow: NSPanel = {
         let panel = NSPanel(
@@ -90,6 +112,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+
+        checkForUpdatesDaily()
+    }
+
+    private func checkForUpdatesDaily() {
+        Task {
+            while true {
+                if let latest = try? await fetchLatestRelease(), isNewerThanInstalled(latest) {
+                    newerRelease = latest
+                }
+                try await Task.sleep(for: .seconds(secondsBetweenUpdateChecks))
+            }
+        }
     }
 
     private func makeWebView(query: String) -> WKWebView {
@@ -146,11 +181,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     private func focusLastRow(in webView: WKWebView) {
         webView.window?.makeFirstResponder(webView)
-        webView.evaluateJavaScript("document.querySelector('li:last-child input').focus()")
+        webView.evaluateJavaScript("document.querySelector('li:last-child textarea').focus()")
     }
 
     private func showStatusMenu() {
         let menu = NSMenu()
+        if let newerRelease {
+            let update = menu.addItem(
+                withTitle: "Update to \(newerRelease.version)",
+                action: #selector(openNewerRelease),
+                keyEquivalent: ""
+            )
+            update.target = self
+            menu.addItem(.separator())
+        }
         let openAtLogin = menu.addItem(
             withTitle: "Open at Login",
             action: #selector(toggleOpenAtLogin),
@@ -167,6 +211,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         statusItem.menu = menu
         statusItem.button!.performClick(nil)
         statusItem.menu = nil
+    }
+
+    @objc private func openNewerRelease() {
+        NSWorkspace.shared.open(newerRelease!.htmlUrl)
     }
 
     @objc private func toggleOpenAtLogin() {
