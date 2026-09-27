@@ -12,7 +12,7 @@ import {
 
 export default function App() {
   const [todos, setTodos] = useState(loadTodos)
-  const inputs = useRef(new Map<string, HTMLInputElement>())
+  const inputs = useRef(new Map<string, HTMLTextAreaElement>())
   const inputToFocus = useRef<string | null>(null)
   const todosSharedWithOtherWindow = useRef('')
 
@@ -31,7 +31,7 @@ export default function App() {
     })
   }, [])
 
-  function registerInput(id: string, input: HTMLInputElement | null) {
+  function registerInput(id: string, input: HTMLTextAreaElement | null) {
     if (input === null) {
       inputs.current.delete(id)
       return
@@ -73,7 +73,7 @@ export default function App() {
         {todos.map((todo, index) => (
           <li
             key={todo.id}
-            className="flex animate-in cursor-text items-center gap-3 duration-150 fade-in"
+            className="flex animate-in cursor-text items-start gap-3 duration-150 fade-in"
             onClick={() => inputs.current.get(todo.id)?.focus()}
           >
             <Checkbox
@@ -81,8 +81,9 @@ export default function App() {
               label={todo.text}
               onToggle={() => toggleDone(index)}
             />
-            <input
+            <textarea
               ref={(input) => registerInput(todo.id, input)}
+              rows={1}
               value={todo.text}
               placeholder="New todo"
               autoCapitalize="off"
@@ -100,9 +101,9 @@ export default function App() {
                 }
               }}
               className={cn(
-                'h-7 min-w-0 bg-transparent p-0 text-[13px] tracking-[-0.01em] outline-none field-sizing-content selection:bg-white/20 placeholder:text-dim',
-                'bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1.5px] bg-[position:0_center] bg-no-repeat transition-[background-size,color] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
-                todo.done && 'bg-[length:100%_1.5px] text-dim',
+                'min-w-0 resize-none overflow-hidden bg-transparent px-0 py-1 text-[13px] leading-5 tracking-[-0.01em] outline-none field-sizing-content selection:bg-white/20 placeholder:text-dim',
+                'line-through decoration-transparent decoration-[1.5px] transition-[color,text-decoration-color] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
+                todo.done && 'text-dim decoration-current',
               )}
             />
           </li>
@@ -129,7 +130,7 @@ function Checkbox({
       aria-label={label === '' ? 'New todo' : label}
       onClick={onToggle}
       className={cn(
-        'flex size-[15px] shrink-0 cursor-pointer items-center justify-center border text-black transition-[background-color,border-color,transform] duration-200 ease-out active:scale-90',
+        'mt-[6.5px] flex size-[15px] shrink-0 cursor-pointer items-center justify-center border text-black transition-[background-color,border-color,transform] duration-200 ease-out active:scale-90',
         checked && 'border-dim bg-dim',
         !checked && label !== '' && 'border-white',
         !checked && label === '' && 'border-dim',
